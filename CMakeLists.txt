@@ -21,18 +21,4 @@ find_package(OpenRAVE 0.148 REQUIRED)
 find_package(Boost ${OpenRAVE_Boost_VERSION} EXACT)
 
 ## configure build
-# include directories
-include_directories(${OpenRAVE_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
-# link directories
-link_directories(${OpenRAVE_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
-
-# create library
-add_library(raveurdf SHARED raveurdf.cpp)
-
-# set compiler and linker flags
-set_target_properties(raveurdf PROPERTIES COMPILE_FLAGS "${OpenRAVE_CXX_FLAGS}" LINK_FLAGS "${OpenRAVE_LINK_FLAGS}")
-# link libraries
-target_link_libraries(raveurdf ${OpenRAVE_LIBRARIES})
-
-# install library
-install(TARGETS raveurdf DESTINATION .)
+add_subdirectory(src)
