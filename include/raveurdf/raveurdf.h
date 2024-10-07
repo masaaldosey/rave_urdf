@@ -23,6 +23,10 @@ public:
     bool loadURDF(std::ostream& soutput, std::istream& sinput);
     std::string loadModel(urdf::Model& urdf_model, TiXmlDocument& xml_doc, std::string path_to_urdf);
 
+    void parseURDF(urdf::Model& model,
+                   std::vector<OpenRAVE::KinBody::LinkInfoPtr>& link_infos,
+                   std::vector<OpenRAVE::KinBody::JointInfoPtr>& joint_infos);
+
 private:
     // reference to OpenRAVE environment
     OpenRAVE::EnvironmentBasePtr _env;
