@@ -1,17 +1,17 @@
 #include <raveurdf/raveurdf.h>
 
 // called to create a new plugin
-InterfaceBasePtr CreateInterfaceValidated(InterfaceType type,
-                                          const std::string& interfacename,
-                                          std::istream& sinput,
-                                          EnvironmentBasePtr penv)
+OpenRAVE::InterfaceBasePtr CreateInterfaceValidated(OpenRAVE::InterfaceType type,
+                                                    const std::string& interfacename,
+                                                    std::istream& sinput,
+                                                    OpenRAVE::EnvironmentBasePtr penv)
 {
 
-    return InterfaceBasePtr();
+    return OpenRAVE::InterfaceBasePtr();
 }
 
 // called to query available plugins
-void GetPluginAttributesValidated(PLUGININFO& info) {}
+void GetPluginAttributesValidated(OpenRAVE::PLUGININFO& info) {}
 
 // called before plugin is terminated
 OPENRAVE_PLUGIN_API void DestroyPlugin() {}
