@@ -14,10 +14,15 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   add_definitions("-fno-strict-aliasing -Wall")
 endif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
 
+# set dependencies
+set(PKG_DEPS tinyxml2 urdf urdfdom)
+
 # find dependencies
 find_package(OpenRAVE 0.148 REQUIRED)
 find_package(TinyXML2 REQUIRED)
-
+foreach(DEPENDENCY ${PKG_DEPS})
+  find_package(${DEPENDENCY} REQUIRED)
+endforeach()
 # optional in case boost is used
 find_package(Boost ${OpenRAVE_Boost_VERSION} EXACT)
 
