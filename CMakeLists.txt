@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 
 # project name
 project(raveurdf)
@@ -10,15 +10,16 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 # configure compiler options
-if( CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX )
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   add_definitions("-fno-strict-aliasing -Wall")
-endif( CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX )
+endif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
 
 # find dependencies
 find_package(OpenRAVE 0.148 REQUIRED)
+find_package(TinyXML2 REQUIRED)
 
 # optional in case boost is used
 find_package(Boost ${OpenRAVE_Boost_VERSION} EXACT)
 
-## configure build
+# configure build
 add_subdirectory(src)
