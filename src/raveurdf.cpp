@@ -32,11 +32,11 @@ bool RaveURDF::loadURDF(std::ostream& soutput, std::istream& sinput)
         RAVELOG_ERROR("Failed to open URDF file for parsing: %s\n", path_to_urdf.c_str());
     }
 
-    soutput << this->loadModel(urdf_model, xml_doc, path_to_urdf);
+    soutput << this->loadRobotModel(urdf_model, xml_doc, path_to_urdf);
     return true;
 }
 
-std::string RaveURDF::loadModel(urdf::Model& urdf_model, TiXmlDocument& xml_doc, std::string path_to_urdf)
+std::string RaveURDF::loadRobotModel(urdf::Model& urdf_model, TiXmlDocument& xml_doc, std::string path_to_urdf)
 {
     OpenRAVE::KinBodyPtr body;
     std::string name;
