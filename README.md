@@ -8,3 +8,6 @@ mkdir build && cd build
 cmake ..
 make
 sudo make install 
+
+## TODO: add script to install urdf related deps
+sudo apt install liburdf*
