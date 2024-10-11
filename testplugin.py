@@ -24,11 +24,13 @@ try:
 
     MyModule = RaveCreateModule(env, 'raveurdf')
     
-    arg = 'load {:s}'.format("/home/prabhat.kondamadugula/github/my-repos/rave_urdf/robots/panda.urdf")
+    arg = 'load {:s}'.format("./robots/panda.urdf")
     MyModule.SendCommand(arg)
     robot = env.GetRobots()[0]
     print(f"Robot name: {robot.GetName()}")
     print(f"Robot DOF: {robot.GetDOF()}")
+    print(f"Robot joints: {robot.GetJoints()}")
+    print(f"Robot links: {robot.GetLinks()}")
     from IPython import embed; embed()
 
 
