@@ -36,3 +36,6 @@
 
 # .vscode directory
 /**/.vscode
+
+# meshes directory
+/**/robots

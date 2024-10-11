@@ -7,18 +7,19 @@ RaveURDF::RaveURDF(OpenRAVE::EnvironmentBasePtr penv)
     : OpenRAVE::ModuleBase(penv)
 {
     __description = "URDFLoader: Loader that imports URDF files.";
-    _env          = penv;
 
-    RegisterCommand("loadURDF",
-                    boost::bind(&RaveURDF::loadURDF, this, boost::placeholders::_1, boost::placeholders::_2),
+    RegisterCommand("load",
+                    boost::bind(&RaveURDF::loadURDFFile, this, boost::placeholders::_1, boost::placeholders::_2),
                     "Load a URDF from a file");
     RAVELOG_INFO("URDFLoader: Loaded URDFLoader plugin\n");
 }
 
-bool RaveURDF::loadURDF(std::ostream& soutput, std::istream& sinput)
+bool RaveURDF::loadURDFFile(std::ostream& soutput, std::istream& sinput)
 {
     std::string path_to_urdf;
     sinput >> path_to_urdf;
+
+    RAVELOG_INFO("Loading URDF file: %s\n", path_to_urdf.c_str());
 
     // parse the URDF file
     urdf::Model urdf_model;
@@ -41,11 +42,39 @@ std::string RaveURDF::loadRobotModel(urdf::Model& urdf_model, TiXmlDocument& xml
     OpenRAVE::KinBodyPtr body;
     std::string name;
 
+    // parse links and joints information from the URDF model
     std::vector<OpenRAVE::KinBody::LinkInfoPtr> link_infos;
     std::vector<OpenRAVE::KinBody::JointInfoPtr> joint_infos;
     this->parseURDF(urdf_model, link_infos, joint_infos);
 
-    return std::string();
+    // parse the geometry group tags from the URDF
+    this->processGeometryGroupTagsFromURDF(xml_doc, link_infos);
+
+    // create the robot model
+    std::vector<OpenRAVE::KinBody::LinkInfoConstPtr> link_infos_const =
+        raveurdf_utils::convertToConstantSharedPointers(link_infos);
+    std::vector<OpenRAVE::KinBody::JointInfoConstPtr> joint_infos_const =
+        raveurdf_utils::convertToConstantSharedPointers(joint_infos);
+    std::vector<OpenRAVE::RobotBase::ManipulatorInfoPtr> manip_infos;
+    std::vector<OpenRAVE::RobotBase::AttachedSensorInfoPtr> sensor_infos;
+
+    // body = OpenRAVE::RaveCreateKinBody(GetEnv(), "");
+    // body->Init(link_infos_const, joint_infos_const, path_to_urdf);
+
+    OpenRAVE::RobotBasePtr robot = OpenRAVE::RaveCreateRobot(GetEnv(), "");
+    robot->Init(link_infos_const,
+                joint_infos_const,
+                raveurdf_utils::convertToConstantSharedPointers(manip_infos),
+                raveurdf_utils::convertToConstantSharedPointers(sensor_infos),
+                path_to_urdf);
+    body = robot;
+
+    body->SetName(urdf_model.getName());
+
+    // InterFaceAddMode details are available at the below link
+    // https://github.com/rdiankov/openrave/blob/ec22ecfaf006688cbc5ee0fdd8fa05d2c5676d37/include/openrave/environment.h#L48
+    GetEnv()->Add(body, static_cast<OpenRAVE::InterfaceAddMode>(0));
+    return body->GetName();
 }
 
 void RaveURDF::parseURDF(urdf::Model& model,
@@ -55,6 +84,8 @@ void RaveURDF::parseURDF(urdf::Model& model,
     // get all links from URDF model
     std::vector<std::shared_ptr<urdf::Link>> link_vector;
     model.getLinks(link_vector);
+    RAVELOG_INFO("Number of links in URDF model: %d\n", link_vector.size());
+    RAVELOG_INFO("Number of joints in URDF model: %d\n", model.joints_.size());
 
     // populate link_list with links in the order they appear in the URDF file
     std::list<std::shared_ptr<urdf::Link const>> link_list;
@@ -95,11 +126,8 @@ void RaveURDF::parseURDF(urdf::Model& model,
             link_info->SetTransform(
                 raveurdf_utils::urdfPoseToRaveTransform(parent_joint->parent_to_joint_origin_transform) *
                 link_info->GetTransform());
-            auto parent_link = model.getLink(parent_joint->parent_link_name);
-            if (!parent_link || processed_links.count(parent_link->name)) {
-                break;
-            }
-            parent_joint = parent_link->parent_joint;
+            std::shared_ptr<urdf::Link const> parent_link = model.getLink(parent_joint->parent_link_name);
+            parent_joint                                  = parent_link->parent_joint;
         }
 
         // set collision geometry information
@@ -157,7 +185,8 @@ void RaveURDF::parseURDF(urdf::Model& model,
                     break;
                 }
             }
-            link_info->_vgeometryinfos.push_back(geom_info);
+            link_info->_mapExtraGeometries["collision"].push_back(geom_info);
+            link_info->_vgeometryinfos.push_back(geom_info);  // Ensure collision geometry is also in geometry list
         }
 
         // add the render geometry. we can't create a link with no collision
@@ -167,45 +196,37 @@ void RaveURDF::parseURDF(urdf::Model& model,
         if (visual) {
             OpenRAVE::KinBody::GeometryInfoPtr geom_info = boost::make_shared<OpenRAVE::KinBody::GeometryInfo>();
             geom_info->SetTransform(raveurdf_utils::urdfPoseToRaveTransform(visual->origin));
-            geom_info->_type        = OpenRAVE::GT_Sphere;
+            geom_info->_type        = OpenRAVE::GT_TriMesh;
             geom_info->_vGeomData   = OpenRAVE::Vector(0.0, 0.0, 0.0);
             geom_info->_bModifiable = false;
             geom_info->_bVisible    = true;
 
-            switch (visual->geometry->type) {
-                case urdf::Geometry::MESH: {
-                    const urdf::Mesh& mesh     = dynamic_cast<const urdf::Mesh&>(*visual->geometry);
-                    geom_info->_filenamerender = mesh.filename;
-                    geom_info->_vRenderScale   = raveurdf_utils::urdfVectorToRaveVector(mesh.scale);
+            // Set mesh properties
+            if (visual->geometry->type == urdf::Geometry::MESH) {
+                const urdf::Mesh& mesh     = dynamic_cast<const urdf::Mesh&>(*visual->geometry);
+                geom_info->_filenamerender = mesh.filename;
+                geom_info->_vRenderScale   = raveurdf_utils::urdfVectorToRaveVector(mesh.scale);
 
-                    // If a material color is specified, use it.
-                    std::shared_ptr<urdf::Material> material = visual->material;
-                    if (material) {
-                        geom_info->_vDiffuseColor = raveurdf_utils::urdfColorToRaveVector(material->color);
-                        geom_info->_vAmbientColor = raveurdf_utils::urdfColorToRaveVector(material->color);
-                    }
-
-                    // Add the render-only geometry to the standard geometry group for
-                    // backwards compatability with QtCoin.
-                    link_info->_vgeometryinfos.push_back(geom_info);
-
-                    // Create a group dedicated to visual geometry for or_rviz.
-                    OpenRAVE::KinBody::GeometryInfoPtr geom_info_clone =
-                        boost::make_shared<OpenRAVE::KinBody::GeometryInfo>(*geom_info);
-                    link_info->_mapExtraGeometries["visual"].push_back(geom_info_clone);
-                    break;
+                // Apply material colors if available
+                std::shared_ptr<urdf::Material> material = visual->material;
+                if (material) {
+                    geom_info->_vDiffuseColor = raveurdf_utils::urdfColorToRaveVector(material->color);
+                    geom_info->_vAmbientColor = raveurdf_utils::urdfColorToRaveVector(material->color);
                 }
 
-                default:
-                    RAVELOG_WARN("Link[%s]: Only trimeshes are supported for visual geometry.\n",
-                                 link_ptr->name.c_str());
+                // Add geometry to both main and "visual" groups to ensure export
+                link_info->_vgeometryinfos.push_back(geom_info);                // Main geometry list
+                link_info->_mapExtraGeometries["visual"].push_back(geom_info);  // Visual group
+            }
+            else {
+                RAVELOG_WARN("Link[%s]: Only mesh geometry is supported for visual elements.\n",
+                             link_ptr->name.c_str());
             }
         }
-        // verify that the "visual" and "spheres" groups always exist. Recall
-        // that accessing an element with operator[] creates it using the default
-        // no-arg constructor if it does not already exist.
-        link_info->_mapExtraGeometries["visual"];
-        link_info->_mapExtraGeometries["spheres"];
+        // // verify that the "visual" and "spheres" groups always exist. Recall
+        // // that accessing an element with operator[] creates it using the default
+        // // no-arg constructor if it does not already exist.
+        // link_info->_mapExtraGeometries["visual"];
 
         link_infos.push_back(link_info);
     }
@@ -294,21 +315,157 @@ void RaveURDF::parseURDF(urdf::Model& model,
     }
 }
 
+void RaveURDF::processGeometryGroupTagsFromURDF(TiXmlDocument& xml_doc,
+                                                std::vector<OpenRAVE::KinBody::LinkInfoPtr>& link_infos)
+{
+    // TiXmlHandle xml_handle(&xml_doc);
+
+    // // obtain `<robot>` element
+    // TiXmlHandle robot_handle(0);
+    // {
+    //     TiXmlElement* robot_element = xml_handle.FirstChild("robot").Element();
+    //     if (!robot_element) {
+    //         RAVELOG_ERROR("Could not find the 'robot' element in the xml file.");
+    //     }
+
+    //     robot_handle = TiXmlHandle(robot_element);
+    // }
+
+    // // Placeholder for unique <geometry_group> names found in the URDF
+    // std::set<std::string> geometry_group_names_set;
+
+    // // Process <link> elements
+    // for (TiXmlElement* link_element = robot_handle.FirstChild("link").Element(); link_element;
+    //      link_element               = link_element->NextSiblingElement("link")) {
+
+    //     const char* link_name = link_element->Attribute("name");
+    //     if (!link_name) {
+    //         RAVELOG_WARN("Link element does not have a name attribute.\n");
+    //         continue;
+    //     }
+
+    //     // Find the corresponding link info
+    //     OpenRAVE::KinBody::LinkInfoPtr link_info;
+    //     for (const auto& info : link_infos) {
+    //         if (info->_name == link_name) {
+    //             link_info = info;
+    //             break;
+    //         }
+    //     }
+    //     if (!link_info) {
+    //         RAVELOG_ERROR("Unable to find a corresponding link '%s'", link_name);
+    //         continue;  // Skip this link if not found
+    //     }
+
+    //     // Process <geometry_group> elements
+    //     for (TiXmlElement* geometry_group_element = link_element->FirstChild("geometry_group")->ToElement();
+    //          geometry_group_element;
+    //          geometry_group_element = geometry_group_element->NextSiblingElement("geometry_group")) {
+
+    //         RAVELOG_INFO("Found geometry_group element for link '%s'\n", link_name);
+    //         const char* geometry_group_name = geometry_group_element->Attribute("name");
+    //         if (!geometry_group_name) {
+    //             throw std::runtime_error(
+    //                 boost::str(boost::format("Unable to get geometry_group name for link '%s':") % link_name));
+    //         }
+
+    //         // Add this geometry group to our set of groups
+    //         geometry_group_names_set.insert(geometry_group_name);
+    //         TiXmlHandle geometry_group_handle = TiXmlHandle(geometry_group_element);
+
+    //         // Parse <origin> element
+    //         urdf::Pose origin_pose;
+    //         TiXmlElement* origin_element = geometry_group_handle.FirstChild("origin").Element();
+    //         if (origin_element) {
+    //             const char* rpy = origin_element->Attribute("rpy");
+    //             const char* xyz = origin_element->Attribute("xyz");
+    //             origin_pose.rotation.init(rpy ? std::string(rpy) : "0 0 0");
+    //             origin_pose.position.init(xyz ? std::string(xyz) : "0 0 0");
+    //         }
+
+    //         // Parse <geometry> element
+    //         TiXmlElement* geometry_element = geometry_group_handle.FirstChild("geometry").Element();
+    //         if (geometry_element) {
+    //             TiXmlHandle geometry_handle = TiXmlHandle(geometry_element);
+
+    //             // Process <mesh> element
+    //             for (TiXmlElement* mesh_element = geometry_handle.FirstChild("mesh").Element(); mesh_element;
+    //                  mesh_element               = mesh_element->NextSiblingElement("mesh")) {
+
+    //                 const char* mesh_filename = mesh_element->Attribute("filename");
+    //                 if (!mesh_filename) {
+    //                     throw std::runtime_error(boost::str(
+    //                         boost::format("Unable to get 'filename' attribute for mesh element for link '%s':") %
+    //                         link_name));
+    //                 }
+
+    //                 // Handle Visual Mesh
+    //                 if (strcmp(geometry_group_name, "visual") == 0) {
+    //                     OpenRAVE::KinBody::GeometryInfoPtr visual_geom_info =
+    //                         boost::make_shared<OpenRAVE::KinBody::GeometryInfo>();
+    //                     visual_geom_info->SetTransform(raveurdf_utils::urdfPoseToRaveTransform(origin_pose));
+    //                     visual_geom_info->_type           = OpenRAVE::GT_TriMesh;
+    //                     visual_geom_info->_filenamerender = mesh_filename;
+    //                     visual_geom_info->_bVisible       = true;  // Make visual geometry visible
+
+    //                     link_info->_mapExtraGeometries["visual"].push_back(visual_geom_info);
+    //                 }
+
+    //                 // Handle Collision Mesh
+    //                 if (strcmp(geometry_group_name, "collision") == 0) {
+    //                     OpenRAVE::KinBody::GeometryInfoPtr collision_geom_info =
+    //                         boost::make_shared<OpenRAVE::KinBody::GeometryInfo>();
+    //                     collision_geom_info->SetTransform(raveurdf_utils::urdfPoseToRaveTransform(origin_pose));
+    //                     collision_geom_info->_type              = OpenRAVE::GT_TriMesh;
+    //                     collision_geom_info->_filenamecollision = mesh_filename;
+    //                     collision_geom_info->_bVisible          = false;  // Keep collision geometry not visible
+
+    //                     link_info->_mapExtraGeometries["collision"].push_back(collision_geom_info);
+    //                 }
+
+    //                 // General geometry addition for collision, keeping it invisible
+    //                 OpenRAVE::KinBody::GeometryInfoPtr geom_info =
+    //                     boost::make_shared<OpenRAVE::KinBody::GeometryInfo>();
+    //                 geom_info->SetTransform(raveurdf_utils::urdfPoseToRaveTransform(origin_pose));
+    //                 geom_info->_bModifiable = false;  // Not modifiable
+    //                 geom_info->_bVisible    = false;  // Keep general collision geometry not visible
+
+    //                 geom_info->_type              = OpenRAVE::GT_TriMesh;
+    //                 geom_info->_filenamecollision = mesh_filename;
+
+    //                 boost::shared_ptr<OpenRAVE::TriMesh> trimesh = boost::make_shared<OpenRAVE::TriMesh>();
+    //                 trimesh = GetEnv()->ReadTrimeshURI(trimesh, geom_info->_filenamecollision);
+    //                 if (trimesh) {
+    //                     geom_info->_meshcollision = *trimesh;
+    //                 }
+    //                 else {
+    //                     RAVELOG_WARN("Link %s: Failed loading collision mesh %s \n",
+    //                                  link_name,
+    //                                  geom_info->_filenamecollision.c_str());
+    //                 }
+
+    //                 // Add geometry info to the appropriate group
+    //                 link_info->_mapExtraGeometries[geometry_group_name].push_back(geom_info);
+
+    //                 // Only find the first <mesh> element
+    //                 break;
+    //             }  // End of processing <mesh> elements
+    //             // Only find the first <geometry> element
+    //             break;
+    //         }  // End of processing <geometry> elements
+    //     }  // End of processing <geometry_group> elements
+    // }  // End of processing <link> elements
+
+    // // each OpenRAVE link must be a member of each geometry group,
+    // // so iterate over all the links and add them to each of the
+    // // geometry groups.
+    // // if a specific geometry group (and mesh) was already specified for
+    // // a link, calling calling mapExtraGeometries[] again does nothing.
+    // for (auto& link_info : link_infos) {
+    //     for (const auto& geometry_group_name : geometry_group_names_set) {
+    //         link_info->_mapExtraGeometries[geometry_group_name];
+    //     }
+    // }
+}
+
 }  // namespace raveurdf
-
-// TODO: see if these are necessary
-// // called to create a new plugin
-// OpenRAVE::InterfaceBasePtr CreateInterfaceValidated(OpenRAVE::InterfaceType type,
-//                                                     const std::string& interfacename,
-//                                                     std::istream& sinput,
-//                                                     OpenRAVE::EnvironmentBasePtr penv)
-// {
-
-//     return OpenRAVE::InterfaceBasePtr();
-// }
-
-// // called to query available plugins
-// void GetPluginAttributesValidated(OpenRAVE::PLUGININFO& info) {}
-
-// // called before plugin is terminated
-// OPENRAVE_PLUGIN_API void DestroyPlugin() {}

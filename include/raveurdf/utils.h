@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/foreach.hpp>
+#include <boost/make_shared.hpp>
 #include <openrave/openrave.h>
 
 namespace raveurdf_utils {
@@ -52,6 +54,19 @@ inline std::pair<OpenRAVE::KinBody::JointType, bool> urdfJointTypeToRaveJointTyp
         default:
             throw std::runtime_error(boost::str(boost::format("Unkonwn type of joint %d.") % type));
     }
+}
+
+template <class T>
+inline std::vector<boost::shared_ptr<T const> > convertToConstantSharedPointers(
+    std::vector<boost::shared_ptr<T> > const& vconst)
+{
+    std::vector<boost::shared_ptr<T const> > v;
+    v.reserve(vconst.size());
+
+    BOOST_FOREACH (boost::shared_ptr<T> const& x, vconst) {
+        v.push_back(x);
+    }
+    return v;
 }
 
 }  // namespace raveurdf_utils
