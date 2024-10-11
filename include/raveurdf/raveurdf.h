@@ -25,8 +25,6 @@ public:
     void parseURDF(urdf::Model& model,
                    std::vector<OpenRAVE::KinBody::LinkInfoPtr>& link_infos,
                    std::vector<OpenRAVE::KinBody::JointInfoPtr>& joint_infos);
-    void processGeometryGroupTagsFromURDF(TiXmlDocument& xml_doc,
-                                          std::vector<OpenRAVE::KinBody::LinkInfoPtr>& link_infos);
 
     int main(const std::string& cmd)
     {
