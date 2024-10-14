@@ -19,7 +19,7 @@ the plugin uses a Franka Robot for demonstration purposes.
   $ python3 test_plugin.py
   ```
 
-[![plugin_showcase_video](/assets/plugin_showcase.mp4)]
+![](assets/plugin_showcase.mp4)
 
 ## Dependencies
 
