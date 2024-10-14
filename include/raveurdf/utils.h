@@ -6,6 +6,7 @@
 
 namespace raveurdf_utils {
 
+// TODO: update doc strings
 inline OpenRAVE::Vector urdfRotationToRaveVector(const urdf::Rotation& rotation)
 {
     return OpenRAVE::Vector(rotation.w, rotation.x, rotation.y, rotation.z);
