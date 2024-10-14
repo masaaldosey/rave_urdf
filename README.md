@@ -9,6 +9,8 @@ an [openRAVE](https://openrave.org/) plugin to load a given *URDF* file.
 
 ## Demo
 
+the plugin uses a Franka Robot for demonstration purposes.
+
 
 ## Dependencies
 
