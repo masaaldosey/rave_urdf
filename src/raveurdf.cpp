@@ -27,13 +27,8 @@ bool RaveURDF::loadURDFFile(std::ostream& soutput, std::istream& sinput)
         RAVELOG_ERROR("Failed to open URDF file: %s\n", path_to_urdf.c_str());
     }
 
-    // parse the URDF again to find <geometry_group> elements
-    TiXmlDocument xml_doc(path_to_urdf.c_str());
-    if (!xml_doc.LoadFile()) {
-        RAVELOG_ERROR("Failed to open URDF file for parsing: %s\n", path_to_urdf.c_str());
-    }
-
     soutput << this->loadRobotModel(urdf_model, xml_doc, path_to_urdf);
+
     return true;
 }
 
@@ -227,6 +222,13 @@ void RaveURDF::parseURDF(urdf::Model& model,
                 // visual group
                 link_info->_mapExtraGeometries["visual"].push_back(geom_info);
             }
+            else if (visual->geometry->type == urdf::Geometry::BOX) {
+                auto* mesh            = static_cast<const urdf::Box*>(visual->geometry.get());
+                geom_info->_vGeomData = 0.5 * OpenRAVE::Vector(mesh->dim.x, mesh->dim.y, mesh->dim.z);
+                geom_info->_type      = OpenRAVE::GT_Box;
+                link_info->_vgeometryinfos.push_back(geom_info);
+            }
+            // TODO: add support for other geometry types
             else {
                 RAVELOG_WARN("Link[%s]: Only mesh geometry is supported for visual elements.\n",
                              link_ptr->name.c_str());
