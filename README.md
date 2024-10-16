@@ -1,13 +1,45 @@
-# rave_urdf
+# raveurdf
 
+an [openRAVE](https://openrave.org/) plugin to load a given *URDF* file.
 
-## TODO: add script to install tinyxml2 installation
-git clone https://github.com/leethomason/tinyxml2.git
-cd tinyxml2
-mkdir build && cd build
-cmake ..
-make
-sudo make install 
+## What does it do?
 
-## TODO: add script to install urdf related deps
-sudo apt install liburdf*
+- loads a given *URDF* file into openRAVE as `OpenRAVE::RobotBase`.
+- however, please ensure that the *URDF* has only one robot.
+- loads static meshes too.
+- exploits builtin openRAVE helpers for *Collada* export.
+
+## Demo
+
+the plugin uses a Franka Robot for demonstration purposes.
+
+- clone the repository.
+- build the plugin.
+  ```bash
+  $ cd <path/to/repo/on/local/machine>
+  $ make
+  $ python3 test_plugin.py
+  ```
+
+![](/assets/plugin_showcase.gif)
+
+## Dependencies
+
+the plugin needs the following to be installed on your machine.
+
+- python3
+- [openRAVE](https://github.com/Ahmed-M-Naguib/openrave/tree/agile-changes).
+  Please install the dependencies listed in the [`ci.yaml`](https://github.com/Ahmed-M-Naguib/openrave/blob/agile-changes/.github/workflows/ci.yaml) before building from source.
+- TinyXML2  
+    ```bash
+    $ git clone https://github.com/leethomason/tinyxml2.git
+    $ cd tinyxml2
+    $ mkdir build && cd build
+    $ cmake ..
+    $ make
+    $ sudo make install
+    ```
+- `urdf` libraries
+    ```bash
+    $ sudo apt install liburdf*
+    ```

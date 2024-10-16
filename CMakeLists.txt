@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 
 # project name
-project(raveurdf)
+project(
+  raveurdf
+  VERSION 0.0.1
+  LANGUAGES CXX)
 
 # configure C++ standard
 if(NOT CMAKE_CXX_STANDARD)
