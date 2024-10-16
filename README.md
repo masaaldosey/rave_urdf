@@ -5,6 +5,8 @@ an [openRAVE](https://openrave.org/) plugin to load a given *URDF* file.
 ## What does it do?
 
 - loads a given *URDF* file into openRAVE as `OpenRAVE::RobotBase`.
+- however, please ensure that the *URDF* has only one robot.
+- loads static meshes too.
 - exploits builtin openRAVE helpers for *Collada* export.
 
 ## Demo
