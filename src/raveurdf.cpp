@@ -27,6 +27,11 @@ bool RaveURDF::loadURDFFile(std::ostream& soutput, std::istream& sinput)
         RAVELOG_ERROR("Failed to open URDF file: %s\n", path_to_urdf.c_str());
     }
 
+    // load the URDF as XML document
+    TiXmlDocument xml_doc(path_to_urdf.c_str());
+    if (!xml_doc.LoadFile()) {
+        RAVELOG_ERROR("Failed to open URDF file for parsing: %s\n", path_to_urdf.c_str());
+    }
     soutput << this->loadRobotModel(urdf_model, xml_doc, path_to_urdf);
 
     return true;
